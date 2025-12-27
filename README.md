@@ -1,27 +1,35 @@
-# 🚀 AI Resume Maker (Android)
+# 🚀 AI Resume Maker
 
-**AI Resume Maker** is a modern Android application built with **Jetpack Compose** that leverages Generative AI to tailor your resume for specific job descriptions. 
+**AI Resume Maker** is a powerful Android application built with **Jetpack Compose** that leverages **Google Gemini 2.5 Flash** to forge the perfect resume.
 
-Stop sending generic resumes. Upload your existing PDF, provide a target Job Description (JD), and let the AI rewrite your experience using the **STAR method**, optimized for ATS systems. Generate professional, print-ready PDFs in seconds with multiple style options.
+Stop sending generic resumes. Upload your existing PDF, scan a target Job Description (JD) from a photo or text, and let the AI rewrite your experience using the **STAR method**. The app also generates a tailored **Cover Letter** and provides an **ATS Match Score** to ensure you stand out.
 
 ---
 
 ## ✨ Features
 
-* **📄 PDF Text Extraction**: Seamlessly extracts text from your existing PDF resume using `PDFBox`.
-* **🤖 AI-Powered Tailoring**: Uses **Google Gemini AI** to rewrite your resume content.
-    * Aligns skills and experience with the target JD.
+### 🤖 AI Core (Gemini 2.5 Flash)
+* **📄 PDF Text Extraction**: Seamlessly extracts text from your existing PDF resume using `PdfBox-Android`.
+* **📸 Photo JD Scanner**: Use the camera to scan Job Descriptions directly from laptop screens or posters (Multimodal AI).
+* **✍️ Smart Rewriting**:
     * Rewrites bullet points using the **STAR method** (Situation, Task, Action, Result).
-    * Sanitizes PII (Phone/Email) before processing for privacy.
-* **🎨 5 Professional Templates**:
-    * **Modern**: Two-column layout with blue accents (Standard Corporate).
-    * **Tech (FAANG)**: Dense, single-column, skills-first layout (Optimized for Engineering).
-    * **Classic**: Serif fonts, traditional layout (great for Academia/Law).
-    * **Creative**: Purple accents with modern typography.
-    * **Compact**: Aggressive margin/font optimization to fit content on 1 page.
-* **⚡ Instant Style Switching**: Switch between templates instantly **without** re-running the AI analysis (saves API tokens and time).
-* **🖨️ Native PDF Export**: Generates high-quality HTML internally and converts it to PDF using Android's native `PrintManager`.
-* **🔒 Privacy Focused**: No login required. All PDF generation happens locally on the device via `WebView`.
+    * **Factual Integrity Engine**: AI is strictly instructed *never* to hallucinate dates, companies, or years of experience.
+* **📝 Cover Letter Generator**: Automatically drafts a persuasive cover letter matching the generated resume.
+* **📊 ATS Scorer**: Analyzes your resume against the JD and provides a match score (0-100%) with missing keywords.
+
+### 🎨 6 Professional Templates
+* **Modern**: Two-column layout with blue accents.
+* **Tech (FAANG)**: Dense, single-column, optimized for engineering roles.
+* **Executive**: High-end serif typography, elegant spacing.
+* **Classic**: Traditional serif layout (Academia/Law).
+* **Creative**: Purple accents with modern typography.
+* **Compact**: Fits maximum content onto a single page.
+
+### 🛠️ Utilities
+* **✏️ Manual Editing**: Typo in the AI output? Edit name, summary, and skills manually before generating the PDF.
+* **💾 History & Drafts**: Automatically saves every resume you generate. Reload and edit them anytime.
+* **⚡ Instant Style Switching**: Change templates instantly *without* re-running the AI (Zero token usage).
+* **🔒 Privacy Focused**: No login required. PDF generation happens locally on the device via `WebView`.
 
 ---
 
@@ -30,8 +38,10 @@ Stop sending generic resumes. Upload your existing PDF, provide a target Job Des
 * **Language**: [Kotlin](https://kotlinlang.org/)
 * **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (Material3)
 * **Architecture**: MVVM (Model-View-ViewModel)
-* **AI Engine**: [Google Generative AI SDK](https://ai.google.dev/) (Gemini)
-* **PDF Tools**: 
+* **AI Engine**: [Google AI for Android](https://developer.android.com/ai/google-ai-client-sdks/docs/firebase-android) (Firebase SDK)
+* **Navigation**: [Type-Safe Compose Navigation](https://developer.android.com/guide/navigation/design/type-safety)
+* **Serialization**: Kotlin Serialization (JSON Parsing)
+* **PDF Tools**:
     * [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) (Extraction)
     * Android Native Print Service (Generation)
 * **Concurrency**: Kotlin Coroutines & Flow
@@ -44,24 +54,27 @@ Stop sending generic resumes. Upload your existing PDF, provide a target Job Des
 com.example.resumemaker
 ├── data
 │   ├── ai
-│   │   └── AIManager.kt       # Handles Gemini API calls & prompt engineering
+│   │   └── AIManager.kt        # Handles Gemini interactions (Resume, Vision, Cover Letter)
 │   └── pdf
-│       └── PdfParser.kt       # Extracts raw text from uploaded PDFs
+│       └── PdfParser.kt        # Extracts raw text from uploaded PDFs
 ├── model
-│   └── TailoredResume.kt      # Data classes for the parsed resume structure
+│   └── TailoredResume.kt       # Data classes for the parsed resume structure
 ├── ui
-│   ├── MainScreen.kt          # Primary UI: Upload, JD Input, & Style Selector
-│   ├── PdfPreviewScreen.kt    # WebView wrapper for PDF preview & saving
-│   └── ResumeViewModel.kt     # Manages UI state, data persistence, & logic
+│   ├── MainScreen.kt           # Dashboard: Upload, Camera, Style Selector
+│   ├── EditResumeScreen.kt     # Editor: Manual corrections for Resume data
+│   ├── HistoryScreen.kt        # List of saved/previous resumes
+│   ├── PdfPreviewScreen.kt     # WebView wrapper for PDF preview & saving
+│   ├── ResumeViewModel.kt      # Manages state, AI calls, and File I/O
+│   └── theme                   # Material3 Theme & Typography
 └── util
-    └── HtmlEngine.kt          # The Core Engine: Generates dynamic HTML/CSS for all 5 templates
+    └── HtmlEngine.kt           # Generates dynamic HTML/CSS for all 6 templates
 ```
 
 ## 🛠️ Setup & Installation
 
 1.  **Clone the repository**:
     ```bash
-    git clone [https://github.com/yourusername/ai-resume-maker.git](https://github.com/yourusername/ai-resume-maker.git)
+    e.g., git clone repo_name.git
     ```
 
 2.  **Open in Android Studio**:
@@ -71,13 +84,10 @@ com.example.resumemaker
     * Go to [Google AI Studio](https://aistudio.google.com/).
     * Create a new API Key.
 
-4.  **Configure API Key**:
-    * Open `local.properties` in your project root.
-    * Add the following line:
-      ```properties
-      GEMINI_API_KEY=your_api_key_here
-      ```
-    * *Note: Ensure your `AIManager.kt` reads this key via `BuildConfig`.*
+4.  **Add Firebase Configuration**:
+    * Download your google-services.json file from the Firebase Console.
+    * Place the file in the app/ directory of the project.
+    * Note: The API Key is automatically read from this file.
 
 5.  **Run the App**:
     * Sync Gradle.
@@ -87,16 +97,18 @@ com.example.resumemaker
 
 ## 📱 How to Use
 
-1.  **Upload Resume**: Tap the upload area to select your current PDF resume.
-2.  **Preview Text**: (Optional) Check the extracted text to ensure the PDF was parsed correctly.
-3.  **Enter JD**: Paste the Job Description of the role you are applying for.
-4.  **Select Style**: Choose a template (e.g., "Tech (FAANG)" or "Modern").
-5.  **Rewrite**: Tap **"Rewrite Resume"**. The AI will analyze and restructure your data.
-6.  **View & Save**:
-    * Once finished, tap **"View Generated PDF"**.
-    * Review the document in the preview screen.
-    * Tap the **Save (Floppy Disk)** icon to save it as a PDF file to your device.
-7.  **Change Style**: Don't like the look? Go back, tap a different style chip (e.g., "Classic"), and the PDF updates **instantly** without using more AI tokens.
+1.  **Upload Resume**: Tap the cloud icon to pick your current PDF resume.
+2.  **Input Job Description**:
+      * **Paste Text**: Copy-paste the JD into the text box.
+      * **Scan Photo**: Tap the Camera Icon inside the text box to upload a screenshot or photo of the JD.
+3.  **Select Template**: Choose a style (e.g., "Tech" or "Executive").
+4.  **Forge Resume**: Tap "**Rewrite Resume with AI**".
+5.  **Review Results**:
+      * **Resume Tab**: View and Edit the generated resume.
+      * **Cover Letter Tab**: Copy the AI-written cover letter.
+      * **ATS Score Tab**: Check your match score and missing keywords.
+6.  **Export**: Tap "**View PDF**" -> **Save Icon** to download the final PDF.
+7.  **History**: Tap the **Clock Icon** in the top bar to view past resumes.
 
 ---
 
