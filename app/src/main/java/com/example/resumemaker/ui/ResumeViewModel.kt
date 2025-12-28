@@ -9,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.resumemaker.data.ai.AIManager
 import com.example.resumemaker.data.pdf.PdfParser
 import com.example.resumemaker.model.TailoredResume
+import com.example.resumemaker.data.local.JobDatabase
+import com.example.resumemaker.data.local.JobApplication
+import com.example.resumemaker.data.local.JobStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +49,9 @@ class ResumeViewModel(
     // UI Loading/Error State
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    private val db = JobDatabase.getDatabase(context)
+    val allJobs = db.jobDao().getAllJobs()
 
     // Data States
     private val _extractedText = MutableStateFlow("")
@@ -264,6 +270,49 @@ class ResumeViewModel(
         }
     }
 
+    fun addJobApplication(company: String, role: String) {
+        viewModelScope.launch {
+            val job = JobApplication(companyName = company, jobTitle = role)
+            db.jobDao().insertJob(job)
+        }
+    }
+
+    fun updateJobStatus(job: JobApplication, newStatus: JobStatus) {
+        viewModelScope.launch {
+            db.jobDao().updateJob(job.copy(status = newStatus))
+        }
+    }
+
+    fun deleteJob(job: JobApplication) {
+        viewModelScope.launch {
+            db.jobDao().deleteJob(job)
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch {
+            try {
+                // 1. Delete Saved JSON Resume Files
+                val files = context.filesDir.listFiles { _, name -> name.startsWith("resume_") }
+                files?.forEach { it.delete() }
+
+                // Refresh the history list (it should now be empty)
+                loadHistory()
+
+                // 2. Clear Job Application Database
+                db.jobDao().deleteAll()
+
+                // 3. Optional: Reset current UI state so the screen clears too
+                _extractedText.value = ""
+                _jdText.value = ""
+                _generatedHtml.value = null
+                _analysisResult.value = AnalysisResult() // Reset cover letter/ATS
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }
 
 class ResumeViewModelFactory(

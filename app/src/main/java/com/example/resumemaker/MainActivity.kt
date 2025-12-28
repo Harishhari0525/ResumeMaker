@@ -17,10 +17,13 @@ import com.example.resumemaker.data.ai.AIManager
 import com.example.resumemaker.data.pdf.PdfParser
 import com.example.resumemaker.ui.EditResumeScreen
 import com.example.resumemaker.ui.HistoryScreen
+import com.example.resumemaker.ui.JobTrackerScreen
 import com.example.resumemaker.ui.MainScreen
 import com.example.resumemaker.ui.PdfPreviewScreen
+import com.example.resumemaker.ui.RealTimeEditScreen
 import com.example.resumemaker.ui.ResumeViewModel
 import com.example.resumemaker.ui.ResumeViewModelFactory
+import com.example.resumemaker.ui.SettingsScreen
 import com.example.resumemaker.ui.theme.ResumeMakerTheme
 import kotlinx.serialization.Serializable
 
@@ -36,6 +39,15 @@ object EditResumeRoute // <--- New Route
 
 @Serializable
 object HistoryRoute    // <--- New Route
+
+@Serializable
+object JobTrackerRoute // <--- New Route
+
+@Serializable
+object RealTimeEditRoute
+
+@Serializable
+object SettingsRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,6 +94,24 @@ class MainActivity : ComponentActivity() {
                             HistoryScreen(
                                 viewModel = viewModel,
                                 onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable<JobTrackerRoute> {
+                            JobTrackerScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable<RealTimeEditRoute> {
+                            RealTimeEditScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable<SettingsRoute> {
+                            SettingsScreen(
+                                onNavigateBack = { navController.popBackStack()},
+                                onClearData = { viewModel.clearAllData() }
                             )
                         }
                     }

@@ -18,7 +18,11 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.resumemaker.util.ResumeStyle
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +66,26 @@ fun MainScreen(
     var selectedTab by remember { mutableIntStateOf(0) } // 0=Resume, 1=CoverLetter, 2=ATS
     val tabs = listOf("Resume PDF", "Cover Letter", "ATS Score")
 
+    fun launchEmailIntent(context: Context, resumeName: String, jobTitle: String, coverLetter: String) {
+        val subject = "Application for $jobTitle - $resumeName"
+
+        val body = coverLetter.ifBlank {
+            "Dear Hiring Manager,\n\nPlease find attached my resume for the $jobTitle position.\n\nBest regards,\n$resumeName"
+        }
+
+        val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+            data = "mailto:".toUri()
+            putExtra(android.content.Intent.EXTRA_SUBJECT, subject)
+            putExtra(android.content.Intent.EXTRA_TEXT, body)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(context, "No email app configured", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -75,6 +100,12 @@ fun MainScreen(
                 actions = {
                     IconButton(onClick = { navController.navigate(com.example.resumemaker.HistoryRoute) }) {
                         Icon(Icons.Default.History, contentDescription = "History")
+                    }
+                    IconButton(onClick = { navController.navigate(com.example.resumemaker.JobTrackerRoute) }) {
+                        Icon(Icons.Default.Work, "Jobs")
+                    }
+                    IconButton(onClick = { navController.navigate(com.example.resumemaker.SettingsRoute) }) {
+                        Icon(Icons.Default.Settings, "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -240,25 +271,76 @@ fun MainScreen(
                 when (selectedTab) {
                     0 -> { // TAB: RESUME
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { navController.navigate(com.example.resumemaker.PdfPreviewRoute(generatedHtml!!)) },
-                                    modifier = Modifier.weight(1f).height(50.dp),
-                                    shape = ShapeDefaults.Small
-                                ) {
-                                    Text("View PDF 📄")
-                                }
 
+                            // 1. PRIMARY ACTION: VIEW PDF (Full Width)
+                            Button(
+                                onClick = { navController.navigate(com.example.resumemaker.PdfPreviewRoute(generatedHtml!!)) },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = ShapeDefaults.Medium,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("📄 View Generated PDF", style = MaterialTheme.typography.titleMedium)
+                            }
+
+                            // 2. SECONDARY ACTIONS (Edit, Live, Email) - Equal Spacing
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // A. Standard Edit
                                 OutlinedButton(
                                     onClick = { navController.navigate(com.example.resumemaker.EditResumeRoute) },
-                                    modifier = Modifier.width(80.dp).height(50.dp),
-                                    shape = ShapeDefaults.Small
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = ShapeDefaults.Small,
+                                    contentPadding = PaddingValues(horizontal = 8.dp) // Tight padding
                                 ) {
-                                    Icon(Icons.Default.Edit, "Edit")
+                                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Edit", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                }
+
+                                // B. Live Edit
+                                OutlinedButton(
+                                    onClick = { navController.navigate(com.example.resumemaker.RealTimeEditRoute) },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = ShapeDefaults.Small,
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    // Use Visibility icon for "Live View"
+                                    Icon(Icons.Default.Visibility, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Live", maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                                }
+
+                                // C. Email
+                                OutlinedButton(
+                                    onClick = {
+                                        val name = viewModel.getCurrentResumeData()?.name ?: "Candidate"
+                                        val jobTitle = "Open Role"
+
+                                        // PASS THE GENERATED COVER LETTER HERE
+                                        launchEmailIntent(
+                                            context = context,
+                                            resumeName = name,
+                                            jobTitle = jobTitle,
+                                            coverLetter = analysisResult.coverLetter
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = ShapeDefaults.Small,
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.Email, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Email", maxLines = 1, style = MaterialTheme.typography.labelLarge)
                                 }
                             }
 
-                            TextButton(onClick = { viewModel.processWithAI() }, modifier = Modifier.fillMaxWidth()) {
+                            // 3. RE-RUN AI (Text Link)
+                            TextButton(
+                                onClick = { viewModel.processWithAI() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text("Re-run AI Analysis (Consumes Tokens)")
                             }
                         }
