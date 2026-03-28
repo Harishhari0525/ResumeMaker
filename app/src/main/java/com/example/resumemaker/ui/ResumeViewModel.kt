@@ -31,7 +31,7 @@ private val jsonParser = Json {
 
 sealed class UiState {
     object Idle : UiState()
-    object Loading : UiState()
+    data class Loading(val message: String = "Loading...") : UiState()
     data class Error(val message: String) : UiState()
 }
 
@@ -112,7 +112,7 @@ class ResumeViewModel(
 
     fun extractJdFromImage(uri: Uri) {
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            _uiState.value = UiState.Loading("Scanning image for text...")
             try {
                 // Convert Uri to Bitmap
                 val inputStream = context.contentResolver.openInputStream(uri)
@@ -183,21 +183,28 @@ class ResumeViewModel(
         if (resumeText.isBlank() || jobDescription.isBlank()) return
 
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            _uiState.value = UiState.Loading("Initializing AI Engine...")
             try {
-                // 1. Sanitize & Trim to save tokens
+                // 1. Sanitize the Resume
                 val cleanResume = resumeText.take(25000)
-                val cleanJd = jobDescription.take(10000)
 
-                // 2. Call AI
-                val resumeData = aiManager.tailorResume(cleanResume, cleanJd)
+                // 2. Pre-process the massive JD down to its core requirements
+                _uiState.value = UiState.Loading("Distilling Job Requirements...")
+                val summarizedJd = aiManager.summarizeJD(jobDescription) ?: jobDescription.take(10000)
+
+                // 3. Call Main AI Tailor
+                _uiState.value = UiState.Loading("Forging optimized bullet points...")
+                val resumeData = aiManager.tailorResume(cleanResume, summarizedJd)
 
                 if (resumeData != null) {
                     lastGeneratedResume = resumeData
                     saveToHistory(resumeData)
+
+                    _uiState.value = UiState.Loading("Drafting Cover Letter & checking ATS...")
                     generateExtras()
 
-                    // 3. Generate HTML locally
+                    // 4. Generate HTML locally
+                    _uiState.value = UiState.Loading("Rendering final PDF layout...")
                     val htmlCode = HtmlEngine.generateHtml(resumeData, _currentStyle.value)
                     _generatedHtml.value = htmlCode
 

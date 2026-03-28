@@ -18,7 +18,7 @@ private val jsonParser = Json {
 class AIManager {
     private val model  = Firebase.ai(backend = GenerativeBackend.googleAI())
         .generativeModel(
-            modelName = "gemini-2.5-flash",
+            modelName = "gemini-3-flash-preview",
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 // We define the schema so the AI knows exactly what JSON to build
@@ -151,6 +151,28 @@ class AIManager {
             modelName = "gemini-2.5-flash"
             // No generationConfig = Defaults to Plain Text
         )
+
+
+    // --- JD Context Optimizer (Option B) ---
+    suspend fun summarizeJD(rawJd: String): String? {
+        val prompt = """
+            You are an expert technical recruiter. Analyze the following Job Description.
+            Extract ONLY the hard requirements, mandatory skills, qualifications, and core responsibilities.
+            Completely strip out all company fluff, benefits, EEOC statements, and "about us" sections.
+            Format the output as a concise, dense list of required skills and experience.
+            
+            JOB DESCRIPTION:
+            ${rawJd.take(35000)}
+        """.trimIndent()
+
+        return try {
+            val response = textModel.generateContent(prompt)
+            response.text
+        } catch (e: Exception) {
+            android.util.Log.e("ResumeAI", "JD Summarization Failed: ${e.message}")
+            null
+        }
+    }
 
     // 3. Cover Letter Generator (New)
     suspend fun generateCoverLetter(resume: TailoredResume, jd: String): String? {

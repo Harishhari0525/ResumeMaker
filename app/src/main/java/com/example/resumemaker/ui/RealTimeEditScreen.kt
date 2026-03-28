@@ -8,14 +8,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.resumemaker.util.HtmlEngine
-import kotlinx.coroutines.delay
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,31 +37,46 @@ fun RealTimeEditScreen(
     var summary by remember { mutableStateOf(originalData.summary) }
     var skillsText by remember { mutableStateOf(originalData.skills.joinToString("\n")) }
 
+    // Toggle States
+    var isPreviewMode by remember { mutableStateOf(false) }
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    var isDarkMode by remember { mutableStateOf(isSystemDark) } // Default to system theme
+
     // Live Preview State
     var htmlContent by remember { mutableStateOf("") }
     val currentStyle by viewModel.currentStyle.collectAsState()
 
-    // DEBOUNCE LOGIC: Update HTML only when typing stops for 800ms
-    LaunchedEffect(name, summary, skillsText) {
-        delay(800)
+    // Generate HTML when typing stops or dark mode toggles
+    LaunchedEffect(name, summary, skillsText, isDarkMode) {
+        kotlinx.coroutines.delay(800)
         val updatedResume = originalData.copy(
             name = name,
             summary = summary,
             skills = skillsText.split("\n").filter { it.isNotBlank() }
         )
-        // Generate HTML locally for preview
-        htmlContent = HtmlEngine.generateHtml(updatedResume, currentStyle)
+        // Pass the Dark Mode flag to the engine
+        htmlContent = HtmlEngine.generateHtml(updatedResume, currentStyle, isDarkMode)
     }
 
     Scaffold(
         contentWindowInsets = WindowInsets.navigationBars,
         topBar = {
             TopAppBar(
-                title = { Text("Live Editor") },
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                                 },
+                title = { Text(if (isPreviewMode) "Preview" else "Live Editor") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                },
                 windowInsets = WindowInsets(top = 0.dp, bottom = 0.dp),
                 actions = {
+
+                    if (isPreviewMode) {
+                        IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                            Icon(
+                                if (isDarkMode) Icons.Default.Visibility else Icons.Default.Visibility,
+                                contentDescription = "Toggle Dark Mode"
+                            )
+                        }
+                    }
                     // Save Button
                     IconButton(onClick = {
                         val finalResume = originalData.copy(
@@ -74,28 +91,39 @@ fun RealTimeEditScreen(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { isPreviewMode = !isPreviewMode },
+                icon = {
+                    Icon(
+                        if (isPreviewMode) Icons.Default.Edit else Icons.Default.Visibility,
+                        contentDescription = "Toggle View"
+                    )
+                },
+                text = { Text(if (isPreviewMode) "Back to Editor" else "Show Preview") }
+            )
         }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
 
-            // 1. EDITOR AREA (Top 50%)
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("Edit Info", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text("Summary") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-                OutlinedTextField(value = skillsText, onValueChange = { skillsText = it }, label = { Text("Skills (New line per skill)") }, modifier = Modifier.fillMaxWidth(), minLines = 5)
-            }
-
-            HorizontalDivider(thickness = 4.dp, color = MaterialTheme.colorScheme.primaryContainer)
-
-            // 2. LIVE PREVIEW AREA (Bottom 50%)
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (!isPreviewMode) {
+                // 1. FULL SCREEN EDITOR
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Edit Info", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text("Summary") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                    OutlinedTextField(value = skillsText, onValueChange = { skillsText = it }, label = { Text("Skills (New line per skill)") }, modifier = Modifier.fillMaxWidth(), minLines = 5)
+                    Spacer(Modifier.height(80.dp)) // Padding for the FAB
+                }
+            } else {
+                // 2. FULL SCREEN PREVIEW
                 if (htmlContent.isNotEmpty()) {
                     AndroidView(
                         factory = { context ->
@@ -110,19 +138,11 @@ fun RealTimeEditScreen(
                         },
                         update = { webView ->
                             webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
-                        }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    CircularProgressIndicator(Modifier.align(androidx.compose.ui.Alignment.Center))
-                }
-
-                // Overlay Label
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(8.dp),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text("Live Preview", color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
             }
         }

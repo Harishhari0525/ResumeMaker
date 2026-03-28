@@ -17,10 +17,25 @@ object HtmlEngine {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;")
     }
 
-    fun generateHtml(data: TailoredResume, style: ResumeStyle): String {
-        return when (style) {
+    fun generateHtml(data: TailoredResume, style: ResumeStyle, isDarkMode: Boolean = false): String {
+        val baseHtml = when (style) {
             ResumeStyle.MODERN -> generateTwoColumnLayout(data)
             else -> generateSingleColumnLayout(data, style)
+        }
+
+        // Inject dark mode CSS if requested (for Live Editor / Preview)
+        return if (isDarkMode) {
+            val darkCss = """
+                <style>
+                    body { background-color: #121212 !important; color: #E0E0E0 !important; border-color: #333 !important; }
+                    .col-right { background-color: #1E1E1E !important; }
+                    h1, h2, .name, .job-title, .skill-cat, .role, .job-header { color: #FFFFFF !important; }
+                    h2 { border-bottom-color: #444 !important; }
+                </style>
+            """.trimIndent()
+            baseHtml.replace("</head>", "$darkCss\n</head>")
+        } else {
+            baseHtml
         }
     }
 
@@ -58,57 +73,19 @@ object HtmlEngine {
             <link href="$fontLink" rel="stylesheet">
             <style>
                 $cssVars
-                
-                @page { 
-                    size: A4; 
-                    margin: var(--margin-page); 
-                }
-                
+                @page { size: A4; margin: var(--margin-page); }
                 * { box-sizing: border-box; }
-                
-                body {
-                    font-family: var(--font-main);
-                    margin: 0; 
-                    padding: 0;
-                    color: var(--color-sec);
-                    line-height: var(--line-height);
-                    font-size: var(--font-size-base);
-                    background: #fff;
-                }
-
+                body { font-family: var(--font-main); margin: 0; padding: 0; color: var(--color-sec); line-height: var(--line-height); font-size: var(--font-size-base); background: #fff; }
                 h1 { font-size: 2.2em; color: var(--color-primary); margin: 0 0 2px 0; text-transform: uppercase; text-align: var(--header-align); font-weight: 700; letter-spacing: 0.5px; }
                 .role { text-align: var(--header-align); font-size: 1.1em; color: var(--color-sec); margin-bottom: 4px; font-weight: 500;}
                 .contact-info { margin-bottom: 10px; text-align: var(--header-align); font-size: 0.9em; padding-bottom: 5px; }
-                
-                h2 {
-                    font-size: 1.0em;
-                    text-transform: uppercase;
-                    border-bottom: var(--border-style);
-                    padding-bottom: 2px;
-                    margin-top: 10px;
-                    margin-bottom: 6px;
-                    color: var(--color-primary);
-                    letter-spacing: 0.5px;
-                    font-weight: 700;
-                }
-
-                /* FIX: Allow page breaks inside the block, but keep header together */
-                .job-block { 
-                    margin-bottom: 8px; 
-                    /* page-break-inside: avoid;  <-- REMOVED THIS */
-                }
-                
-                .job-header-group {
-                    page-break-inside: avoid; /* Keep Title + Company together */
-                    page-break-after: avoid;  /* Don't break right after the header */
-                }
-                
+                h2 { font-size: 1.0em; text-transform: uppercase; border-bottom: var(--border-style); padding-bottom: 2px; margin-top: 10px; margin-bottom: 6px; color: var(--color-primary); letter-spacing: 0.5px; font-weight: 700; }
+                .job-block { margin-bottom: 8px; }
+                .job-header-group { page-break-inside: avoid; page-break-after: avoid; }
                 .job-header { display: flex; justify-content: space-between; font-weight: 700; color: #000; font-size: 1.0em; }
                 .job-sub { display: flex; justify-content: space-between; font-style: italic; margin-bottom: 2px; font-size: 0.95em; }
-                
                 ul { margin: 2px 0 0 14px; padding: 0; }
                 li { margin-bottom: 1px; text-align: justify; }
-                
                 .skills-section { margin-top: 4px; line-height: 1.4; }
                 .skill-cat { font-weight: 700; color: var(--color-primary); }
             </style>
@@ -120,9 +97,12 @@ object HtmlEngine {
                 ${data.contactInfo.split("|").joinToString(" • ") { escape(it.trim()) }}
             </div>
 
+            ${if (data.summary.isNotBlank()) """
             <h2>Professional Summary</h2>
             <p style="margin-top:2px; text-align:justify;">${escape(data.summary)}</p>
+            """ else ""}
 
+            ${if (data.skills.isNotEmpty()) """
             <h2>Technical Skills</h2>
             <div class="skills-section">
                  ${data.skills.joinToString("<br>") { skill ->
@@ -131,7 +111,9 @@ object HtmlEngine {
             else "• ${escape(skill)}"
         }}
             </div>
+            """ else ""}
 
+            ${if (data.experience.isNotEmpty()) """
             <h2>Experience</h2>
             ${data.experience.joinToString("") { job ->
             """
@@ -142,9 +124,11 @@ object HtmlEngine {
                     </div>
                     <ul>${job.bulletPoints.joinToString("") { "<li>${escape(it)}</li>" }}</ul>
                 </div>
-                """
+            """
         }}
+            """ else ""}
 
+            ${if (data.projects.isNotEmpty()) """
             <h2>Personal Projects</h2>
             ${data.projects.joinToString("") { proj ->
             """
@@ -155,9 +139,11 @@ object HtmlEngine {
                     </div>
                     <ul>${proj.bulletPoints.joinToString("") { "<li>${escape(it)}</li>" }}</ul>
                 </div>
-                """
+            """
         }}
+            """ else ""}
 
+            ${if (data.education.isNotEmpty()) """
             <h2>Education</h2>
             ${data.education.joinToString("") { edu ->
             """
@@ -165,8 +151,9 @@ object HtmlEngine {
                     <div class="job-header"><span>${escape(edu.school)}</span><span>${escape(edu.year)}</span></div>
                     <div>${escape(edu.degree)}</div>
                 </div>
-                """
+            """
         }}
+            """ else ""}
         </body>
         </html>
         """.trimIndent()
@@ -183,35 +170,20 @@ object HtmlEngine {
                 @page { size: A4; margin: 10mm; } 
                 * { box-sizing: border-box; }
                 body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; color: #1f2937; line-height: 1.4; font-size: 11px; background: #fff; }
-                
                 .header-container { padding: 10px 0 20px 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 15px; }
                 .name { font-size: 24px; font-weight: 700; color: #111827; margin-bottom: 2px; text-transform: uppercase; }
                 .role { font-size: 14px; color: #4b5563; font-weight: 500; margin-bottom: 8px; }
                 .contact-bar { display: flex; gap: 12px; font-size: 10.5px; color: #6b7280; flex-wrap: wrap; }
-                
                 .main-grid { display: grid; grid-template-columns: 68% 30%; gap: 2%; min-height: 90vh; }
-                .col-left { }
                 .col-right { background-color: #f9fafb; padding: 10px; border-radius: 4px; height: fit-content; }
-                
                 h2 { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid #d1d5db; padding-bottom: 3px; margin-top: 0; }
                 .section { margin-bottom: 15px; }
-                
-                /* FIX: Allow breaks inside, but keep header together */
-                .job-block { 
-                    margin-bottom: 10px; 
-                    /* page-break-inside: avoid; <-- REMOVED */
-                }
-                .job-header-group {
-                    page-break-inside: avoid;
-                    page-break-after: avoid;
-                }
-
+                .job-block { margin-bottom: 10px; }
+                .job-header-group { page-break-inside: avoid; page-break-after: avoid; }
                 .job-title { font-weight: 700; font-size: 12px; color: #000; }
                 .company-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 11px; color: #4b5563; }
-                
                 ul { margin: 2px 0 0 12px; padding: 0; }
                 li { margin-bottom: 2px; text-align: justify; }
-                
                 .skill-block { margin-bottom: 8px; }
                 .skill-cat { font-weight: 700; display: block; margin-bottom: 1px; font-size: 10.5px; }
             </style>
@@ -224,8 +196,9 @@ object HtmlEngine {
             </div>
             <div class="main-grid">
                 <div class="col-left">
-                    <div class="section"><h2>Profile</h2><p style="text-align:justify;">${escape(data.summary)}</p></div>
-                    <div class="section"><h2>Experience</h2>
+                    ${if (data.summary.isNotBlank()) """<div class="section"><h2>Profile</h2><p style="text-align:justify;">${escape(data.summary)}</p></div>""" else ""}
+                    
+                    ${if (data.experience.isNotEmpty()) """<div class="section"><h2>Experience</h2>
                     ${data.experience.joinToString("") { job ->
             """<div class="job-block">
                         <div class="job-header-group">
@@ -233,8 +206,9 @@ object HtmlEngine {
                             <div class="company-row"><span>${escape(job.company)}</span><span>${escape(job.duration)}</span></div>
                         </div>
                         <ul>${job.bulletPoints.joinToString("") { "<li>${escape(it)}</li>" }}</ul></div>"""
-        }}</div>
-                    <div class="section"><h2>Projects</h2>
+        }}</div>""" else ""}
+                    
+                    ${if (data.projects.isNotEmpty()) """<div class="section"><h2>Projects</h2>
                     ${data.projects.joinToString("") { proj ->
             """<div class="job-block">
                          <div class="job-header-group">
@@ -242,19 +216,20 @@ object HtmlEngine {
                             <div class="company-row"><span>${escape(proj.technologies)}</span></div>
                          </div>
                         <ul>${proj.bulletPoints.joinToString("") { "<li>${escape(it)}</li>" }}</ul></div>"""
-        }}</div>
+        }}</div>""" else ""}
                 </div>
                 <div class="col-right">
-                    <div class="section"><h2>Skills</h2>
+                    ${if (data.skills.isNotEmpty()) """<div class="section"><h2>Skills</h2>
                     ${data.skills.joinToString("") { skill ->
             val parts = skill.split(":", limit = 2)
             if (parts.size > 1) """<div class="skill-block"><span class="skill-cat">${escape(parts[0])}</span><span>${escape(parts[1])}</span></div>"""
             else """<div>• ${escape(skill)}</div>"""
-        }}</div>
-                    <div class="section"><h2>Education</h2>
+        }}</div>""" else ""}
+                    
+                    ${if (data.education.isNotEmpty()) """<div class="section"><h2>Education</h2>
                      ${data.education.joinToString("") { edu ->
             """<div style="margin-bottom:10px"><b>${escape(edu.degree)}</b><br><i>${escape(edu.school)}</i><br><small>${escape(edu.year)}</small></div>"""
-        }}</div>
+        }}</div>""" else ""}
                 </div>
             </div>
         </body>
